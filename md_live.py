@@ -86,6 +86,75 @@ _BASE_HTML = """\
 </html>
 """
 
+_VIEWER_HTML = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<link rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+<style>
+  * {{ box-sizing: border-box; }}
+  body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+  .viewer-layout {{ display: flex; min-height: 100vh; }}
+  /* --- TOC sidebar --- */
+  .toc-nav {{
+    width: 220px; min-width: 220px; flex-shrink: 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    border-right: 1px solid #e1e4e8; background: #fafbfc;
+    transition: width 0.15s ease, min-width 0.15s ease;
+  }}
+  .toc-nav.collapsed {{ width: 36px; min-width: 36px; overflow: hidden; }}
+  .toc-nav.collapsed .toc-inner {{ display: none; }}
+  .toc-toggle {{
+    display: block; width: 100%; padding: 10px 12px; border: none;
+    background: none; cursor: pointer; font-size: 16px; color: #555;
+    text-align: left; border-bottom: 1px solid #e1e4e8;
+  }}
+  .toc-toggle:hover {{ background: #f0f0f0; color: #000; }}
+  .toc-nav.collapsed .toc-toggle {{ text-align: center; padding: 10px 0; }}
+  .toc-inner {{ padding: 8px 0; }}
+  .toc-heading {{ font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
+                  letter-spacing: .06em; padding: 4px 12px 8px; }}
+  .toc-list {{ list-style: none; padding: 0; margin: 0; }}
+  .toc-list li {{ line-height: 1.4; }}
+  .toc-list a {{
+    display: block; padding: 3px 12px; color: #444; text-decoration: none;
+    font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }}
+  .toc-list a:hover {{ color: #0366d6; background: #eef2f7; }}
+  .toc-list a.active {{ color: #0366d6; font-weight: 600; }}
+  .toc-h1 > a {{ font-weight: 600; color: #222; }}
+  .toc-h2 > a {{ padding-left: 22px; }}
+  .toc-h3 > a {{ padding-left: 36px; font-size: 12px; color: #666; }}
+  /* --- Main content --- */
+  .viewer-main {{ flex: 1; min-width: 0; padding: 40px 48px 80px; }}
+  .back {{ display: inline-block; margin-bottom: 20px; color: #0366d6; text-decoration: none; font-size: 14px; }}
+  .back:hover {{ text-decoration: underline; }}
+  .markdown-body {{ max-width: 860px; }}
+</style>
+</head>
+<body>
+<div class="viewer-layout">
+  <nav class="toc-nav" id="toc-nav">
+    <button class="toc-toggle" id="toc-toggle" title="Toggle table of contents">&#9776;</button>
+    <div class="toc-inner">
+      <div class="toc-heading">Contents</div>
+      <ul class="toc-list" id="toc-list"></ul>
+    </div>
+  </nav>
+  <main class="viewer-main">
+    <a class="back" href="/">&#8592; back</a>
+    <article class="markdown-body" id="content"></article>
+  </main>
+</div>
+{script}
+</body>
+</html>
+"""
+
 def _render_page(title, body, script=""):
     return _BASE_HTML.format(title=title, body=body, script=script)
 
@@ -133,12 +202,39 @@ def _listing_page(files):
 
 def _viewer_page(filename):
     enc = urllib.parse.quote(filename)
-    body = f'<a class="back" href="/">&#8592; back</a>\n<article class="markdown-body" id="content"></article>'
     script = f"""\
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 <script>
 (function() {{
   var file = {repr(enc)};
+
+  function buildTOC() {{
+    var headings = document.querySelectorAll('#content h1, #content h2, #content h3');
+    var list = document.getElementById('toc-list');
+    var nav = document.getElementById('toc-nav');
+    list.innerHTML = '';
+    if (headings.length === 0) {{
+      nav.classList.add('collapsed');
+      return;
+    }}
+    headings.forEach(function(h, i) {{
+      if (!h.id) h.id = 'heading-' + i;
+      var level = parseInt(h.tagName[1], 10);
+      var li = document.createElement('li');
+      li.className = 'toc-h' + level;
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent;
+      a.title = h.textContent;
+      a.addEventListener('click', function(e) {{
+        e.preventDefault();
+        h.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+      }});
+      li.appendChild(a);
+      list.appendChild(li);
+    }});
+  }}
+
   function loadContent() {{
     fetch('/raw?f=' + file)
       .then(function(r) {{ return r.text(); }})
@@ -150,14 +246,20 @@ def _viewer_page(filename):
             img.src = '/raw?f=' + encodeURIComponent(src);
           }}
         }});
+        buildTOC();
       }});
   }}
+
+  document.getElementById('toc-toggle').addEventListener('click', function() {{
+    document.getElementById('toc-nav').classList.toggle('collapsed');
+  }});
+
   loadContent();
   var es = new EventSource('/events?f=' + file);
   es.addEventListener('update', loadContent);
 }})();
 </script>"""
-    return _render_page(filename, body, script)
+    return _VIEWER_HTML.format(title=filename, script=script)
 
 def _image_page(filename):
     enc = urllib.parse.quote(filename)
