@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import urllib.parse
+import subprocess
 import webbrowser
 from pathlib import Path
 
@@ -508,7 +509,6 @@ def _schedule_exit():
     _exit_handle = _loop.call_later(EXIT_GRACE, _do_exit)
 
 def _do_exit():
-    print("\nNo clients connected — shutting down.")
     if _server:
         _server.close()
     sys.exit(0)
@@ -562,12 +562,24 @@ async def serve(port: int, directory: Path, open_browser: bool):
 
     _server = server
     url = f"http://localhost:{port}"
-    print(f"Serving {directory}  on  {url}")
-    print("Press Ctrl+C to stop.")
 
     if open_browser:
+        def _open_browser():
+            # Call the OS launcher directly so we can silence its stdout/stderr.
+            # "Opening in existing browser session." comes from the browser binary,
+            # not our code, so webbrowser.open() can't suppress it.
+            if sys.platform == "darwin":
+                cmd = ["open", url]
+            else:
+                cmd = ["xdg-open", url]
+            try:
+                subprocess.Popen(cmd,
+                                 stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL)
+            except OSError:
+                webbrowser.open(url)  # fallback if xdg-open/open not found
         # Small delay so the server is ready before the browser hits it
-        _loop.call_later(0.2, lambda: webbrowser.open(url))
+        _loop.call_later(0.2, _open_browser)
 
     async with server:
         await server.serve_forever()
@@ -609,7 +621,7 @@ def main():
     try:
         asyncio.run(serve(args.port, directory, not args.no_open))
     except KeyboardInterrupt:
-        print("\nStopped.")
+        pass
 
 if __name__ == "__main__":
     main()
