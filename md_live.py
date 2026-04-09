@@ -475,7 +475,11 @@ async def _handle_events(writer, query: str):
             if current != last_mtime:
                 last_mtime = current
                 writer.write(b"event: update\ndata: changed\n\n")
-                await writer.drain()
+            else:
+                # SSE comment — ignored by EventSource but causes a write,
+                # so we detect client disconnects promptly even without changes.
+                writer.write(b": keepalive\n\n")
+            await writer.drain()
     except (ConnectionResetError, BrokenPipeError, OSError, asyncio.CancelledError):
         pass
     finally:
