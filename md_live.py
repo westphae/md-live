@@ -551,7 +551,7 @@ async def serve(port: int, directory: Path, open_browser: bool):
     global BASE_DIR, _server, _loop
 
     BASE_DIR = directory
-    _loop = asyncio.get_event_loop()
+    _loop = asyncio.get_running_loop()
 
     try:
         server = await asyncio.start_server(_handle_connection, "127.0.0.1", port)
