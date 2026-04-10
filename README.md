@@ -19,14 +19,26 @@ That's it. A browser tab opens showing your directory. Click any `.md` file to r
 
 ## Installation
 
-Copy `md_live.py` somewhere on your `$PATH` and make it executable:
+**With uv (recommended):**
+
+```bash
+uv tool install .
+```
+
+**With pip:**
+
+```bash
+pip install .
+```
+
+**Manually** — copy `md_live.py` somewhere on your `$PATH`:
 
 ```bash
 cp md_live.py ~/.local/bin/md-live
 chmod +x ~/.local/bin/md-live
 ```
 
-Requires Python 3.6+.
+Requires Python 3.8+.
 
 ## Usage
 
