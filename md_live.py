@@ -547,7 +547,7 @@ async def _handle_connection(reader, writer):
         except Exception:
             pass
 
-async def serve(port: int, directory: Path, open_browser: bool):
+async def serve(port: int, directory: Path, open_browser: bool, open_file: str = ""):
     global BASE_DIR, _server, _loop
 
     BASE_DIR = directory
@@ -561,7 +561,11 @@ async def serve(port: int, directory: Path, open_browser: bool):
         sys.exit(1)
 
     _server = server
-    url = f"http://localhost:{port}"
+    base_url = f"http://localhost:{port}"
+    if open_file:
+        url = base_url + "/view?f=" + urllib.parse.quote(open_file)
+    else:
+        url = base_url
 
     if open_browser:
         def _open_browser():
@@ -594,10 +598,10 @@ def main():
         description="Live markdown preview server for local files.",
     )
     parser.add_argument(
-        "directory",
+        "path",
         nargs="?",
         default=".",
-        help="Directory to serve (default: current directory)",
+        help="Directory to serve, or a .md file to open directly (default: current directory)",
     )
     parser.add_argument(
         "--port", "-p",
@@ -613,13 +617,19 @@ def main():
     )
     args = parser.parse_args()
 
-    directory = Path(args.directory).resolve()
-    if not directory.is_dir():
-        print(f"Error: '{args.directory}' is not a directory.")
+    target = Path(args.path).resolve()
+    if target.is_file():
+        directory = target.parent
+        open_file = target.name
+    elif target.is_dir():
+        directory = target
+        open_file = ""
+    else:
+        print(f"Error: '{args.path}' is not a file or directory.")
         sys.exit(1)
 
     try:
-        asyncio.run(serve(args.port, directory, not args.no_open))
+        asyncio.run(serve(args.port, directory, not args.no_open, open_file))
     except KeyboardInterrupt:
         pass
 
