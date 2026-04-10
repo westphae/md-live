@@ -31,7 +31,7 @@ Requires Python 3.6+.
 ## Usage
 
 ```
-md-live [--port PORT] [--no-open] [DIRECTORY]
+md-live [--port PORT] [--no-open] [PATH]
 ```
 
 Run in the background from any directory:
@@ -39,6 +39,12 @@ Run in the background from any directory:
 ```bash
 cd ~/notes
 md-live &
+```
+
+Or open a specific file directly:
+
+```bash
+md-live ~/notes/todo.md &
 ```
 
 A browser tab opens at `http://localhost:4000`. When you close the tab, the server exits and the shell job finishes on its own.
@@ -49,7 +55,7 @@ A browser tab opens at `http://localhost:4000`. When you close the tab, the serv
 |------|---------|-------------|
 | `--port`, `-p` | `4000` | Port to listen on |
 | `--no-open` | — | Don't open the browser automatically |
-| `DIRECTORY` | `.` | Directory to serve |
+| `PATH` | `.` | Directory to serve, or a file to open directly |
 
 ## Tips
 
