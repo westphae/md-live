@@ -247,6 +247,10 @@ def _viewer_page(filename):
             img.src = '/raw?f=' + encodeURIComponent(src);
           }}
         }});
+        document.querySelectorAll('#content a[href]').forEach(function(a) {{
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+        }});
         buildTOC();
       }});
   }}
