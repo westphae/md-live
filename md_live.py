@@ -18,7 +18,7 @@ from pathlib import Path
 
 DEFAULT_PORT = 4000
 POLL_INTERVAL = 0.5   # seconds between file-change polls
-EXIT_GRACE = 5.0      # seconds to wait after last client disconnects
+EXIT_GRACE = 1.0      # seconds to wait after last client disconnects
 
 # ---------------------------------------------------------------------------
 # Global state
