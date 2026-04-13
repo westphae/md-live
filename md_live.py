@@ -551,18 +551,34 @@ async def _handle_connection(reader, writer):
         except Exception:
             pass
 
-async def serve(port: int, directory: Path, open_browser: bool, open_file: str = ""):
+async def serve(port: int, directory: Path, open_browser: bool, open_file: str = "",
+                port_explicit: bool = False):
     global BASE_DIR, _server, _loop
 
     BASE_DIR = directory
     _loop = asyncio.get_running_loop()
 
-    try:
-        server = await asyncio.start_server(_handle_connection, "127.0.0.1", port)
-    except OSError as e:
-        print(f"Error: could not bind to port {port} — {e}")
-        print(f"Try a different port with --port.")
-        sys.exit(1)
+    if port_explicit:
+        try:
+            server = await asyncio.start_server(_handle_connection, "127.0.0.1", port)
+        except OSError as e:
+            print(f"Error: could not bind to port {port} — {e}", file=sys.stderr)
+            print(f"Try a different port with --port.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        for candidate in range(port, port + 100):
+            try:
+                server = await asyncio.start_server(_handle_connection, "127.0.0.1", candidate)
+                port = candidate
+                break
+            except OSError:
+                continue
+        else:
+            print(f"Error: could not find a free port in range {port}–{port + 99}.", file=sys.stderr)
+            sys.exit(1)
+
+    if not open_browser and port != DEFAULT_PORT:
+        print(f"Listening on port {port}", file=sys.stderr)
 
     _server = server
     base_url = f"http://localhost:{port}"
@@ -632,8 +648,9 @@ def main():
         print(f"Error: '{args.path}' is not a file or directory.")
         sys.exit(1)
 
+    port_explicit = "--port" in sys.argv or "-p" in sys.argv
     try:
-        asyncio.run(serve(args.port, directory, not args.no_open, open_file))
+        asyncio.run(serve(args.port, directory, not args.no_open, open_file, port_explicit))
     except KeyboardInterrupt:
         pass
 
