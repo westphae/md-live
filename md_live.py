@@ -553,7 +553,7 @@ async def _handle_connection(reader, writer):
             pass
 
 async def serve(port: int, directory: Path, open_browser: bool, open_file: str = "",
-                port_explicit: bool = False):
+                port_explicit: bool = False, host: str = "127.0.0.1"):
     global BASE_DIR, _server, _loop
 
     BASE_DIR = directory
@@ -561,7 +561,7 @@ async def serve(port: int, directory: Path, open_browser: bool, open_file: str =
 
     if port_explicit:
         try:
-            server = await asyncio.start_server(_handle_connection, "127.0.0.1", port)
+            server = await asyncio.start_server(_handle_connection, host, port)
         except OSError as e:
             print(f"Error: could not bind to port {port} — {e}", file=sys.stderr)
             print(f"Try a different port with --port.", file=sys.stderr)
@@ -569,7 +569,7 @@ async def serve(port: int, directory: Path, open_browser: bool, open_file: str =
     else:
         for candidate in range(port, port + 100):
             try:
-                server = await asyncio.start_server(_handle_connection, "127.0.0.1", candidate)
+                server = await asyncio.start_server(_handle_connection, host, candidate)
                 port = candidate
                 break
             except OSError:
@@ -578,8 +578,8 @@ async def serve(port: int, directory: Path, open_browser: bool, open_file: str =
             print(f"Error: could not find a free port in range {port}–{port + 99}.", file=sys.stderr)
             sys.exit(1)
 
-    if not open_browser and port != DEFAULT_PORT:
-        print(f"Listening on port {port}", file=sys.stderr)
+    if not open_browser and (port != DEFAULT_PORT or host != "127.0.0.1"):
+        print(f"Listening on {host}:{port}", file=sys.stderr)
 
     _server = server
     _loop.add_signal_handler(signal.SIGINT, server.close)
@@ -634,6 +634,12 @@ def main():
         help=f"Port to listen on (default: {DEFAULT_PORT})",
     )
     parser.add_argument(
+        "--host", "-H",
+        default="127.0.0.1",
+        metavar="HOST",
+        help="Address to listen on (default: 127.0.0.1; use 0.0.0.0 for all interfaces)",
+    )
+    parser.add_argument(
         "--no-open",
         action="store_true",
         help="Do not open browser automatically",
@@ -652,7 +658,7 @@ def main():
         sys.exit(1)
 
     port_explicit = "--port" in sys.argv or "-p" in sys.argv
-    asyncio.run(serve(args.port, directory, not args.no_open, open_file, port_explicit))
+    asyncio.run(serve(args.port, directory, not args.no_open, open_file, port_explicit, args.host))
 
 if __name__ == "__main__":
     main()

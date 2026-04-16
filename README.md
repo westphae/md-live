@@ -66,6 +66,7 @@ A browser tab opens at `http://localhost:4000`. When you close the tab, the serv
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--port`, `-p` | `4000` | Port to listen on |
+| `--host`, `-H` | `127.0.0.1` | Address to bind (use `0.0.0.0` to expose on the network) |
 | `--no-open` | — | Don't open the browser automatically |
 | `PATH` | `.` | Directory to serve, or a file to open directly |
 
