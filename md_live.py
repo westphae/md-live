@@ -652,10 +652,7 @@ def main():
         sys.exit(1)
 
     port_explicit = "--port" in sys.argv or "-p" in sys.argv
-    try:
-        asyncio.run(serve(args.port, directory, not args.no_open, open_file, port_explicit))
-    except KeyboardInterrupt:
-        pass
+    asyncio.run(serve(args.port, directory, not args.no_open, open_file, port_explicit))
 
 if __name__ == "__main__":
     main()
