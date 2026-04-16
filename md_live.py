@@ -5,6 +5,7 @@ import argparse
 import asyncio
 import mimetypes
 import os
+import signal
 import sys
 import time
 import urllib.parse
@@ -581,6 +582,8 @@ async def serve(port: int, directory: Path, open_browser: bool, open_file: str =
         print(f"Listening on port {port}", file=sys.stderr)
 
     _server = server
+    _loop.add_signal_handler(signal.SIGINT, server.close)
+
     base_url = f"http://localhost:{port}"
     if open_file:
         url = base_url + "/view?f=" + urllib.parse.quote(open_file)
