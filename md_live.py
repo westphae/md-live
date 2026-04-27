@@ -70,13 +70,17 @@ _BASE_HTML = """\
   .back {{ display: inline-block; margin-bottom: 20px; color: #0366d6; text-decoration: none; font-size: 14px; }}
   .back:hover {{ text-decoration: underline; }}
   h1.dir-title {{ font-size: 20px; color: #444; margin-bottom: 16px; font-weight: 500; }}
-  .file-list {{ list-style: none; padding: 0; margin: 0; }}
-  .file-list li {{ padding: 4px 0; }}
-  .file-list a {{ color: #0366d6; text-decoration: none; font-size: 15px; }}
+  .file-list {{ width: 100%; border-collapse: collapse; }}
+  .file-list th, .file-list td {{ padding: 6px 12px; font-size: 14px; text-align: left; }}
+  .file-list th {{ font-weight: 500; color: #555; border-bottom: 1px solid #e1e4e8;
+                   cursor: pointer; user-select: none; white-space: nowrap; }}
+  .file-list th:hover {{ background: #f6f8fa; }}
+  .file-list tbody tr:hover {{ background: #f6f8fa; }}
+  .file-list a {{ color: #0366d6; text-decoration: none; }}
   .file-list a:hover {{ text-decoration: underline; }}
   .file-list .icon {{ margin-right: 6px; }}
-  .section-label {{ font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase;
-                    letter-spacing: .05em; margin: 16px 0 4px; }}
+  .file-list th.col-mtime, .file-list td.mtime {{ text-align: right; color: #666;
+                                                    white-space: nowrap; width: 180px; }}
 </style>
 </head>
 <body>
@@ -160,44 +164,71 @@ _VIEWER_HTML = """\
 def _render_page(title, body, script=""):
     return _BASE_HTML.format(title=title, body=body, script=script)
 
-def _listing_page(files):
-    md_files  = [f for f in files if _is_markdown(f)]
-    img_files = [f for f in files if _is_image(f)]
-    other     = [f for f in files if not _is_markdown(f) and not _is_image(f)]
+def _file_table_html(files, sort: str, order: str) -> str:
+    sorted_files = _sort_files(files, sort, order)
 
-    rows = ['<h1 class="dir-title">&#128196; Files</h1>', '<ul class="file-list" id="file-list">']
+    def th(col, label):
+        if sort == col:
+            arrow = " &#9650;" if order == "asc" else " &#9660;"
+            cls = f"col-{col} sorted-{order}"
+        else:
+            arrow = ""
+            cls = f"col-{col}"
+        return f'<th class="{cls}" data-sort="{col}">{label}{arrow}</th>'
 
-    def add_section(label, items, icon):
-        if not items:
-            return
-        rows.append(f'<li class="section-label">{label}</li>')
-        for name in sorted(items):
-            enc = urllib.parse.quote(name)
-            rows.append(f'<li><span class="icon">{icon}</span>'
-                        f'<a href="/view?f={enc}">{name}</a></li>')
+    rows = [
+        f'<table class="file-list" id="file-list" data-sort="{sort}" data-order="{order}">',
+        '<thead><tr>', th("name", "Name"), th("mtime", "Last Modified"), '</tr></thead>',
+        '<tbody>',
+    ]
+    for name, mtime in sorted_files:
+        enc = urllib.parse.quote(name)
+        date = _format_mtime(mtime)
+        if _is_markdown(name):
+            cell = f'<span class="icon">&#128221;</span><a href="/view?f={enc}">{name}</a>'
+        elif _is_image(name):
+            cell = f'<span class="icon">&#128444;</span><a href="/view?f={enc}">{name}</a>'
+        else:
+            cell = f'<span class="icon">&#128196;</span>{name}'
+        rows.append(f'<tr><td>{cell}</td><td class="mtime">{date}</td></tr>')
+    rows.append('</tbody></table>')
+    return "\n".join(rows)
 
-    add_section("Markdown", md_files, "&#128221;")
-    add_section("Images",   img_files, "&#128444;")
-    if other:
-        rows.append('<li class="section-label">Other</li>')
-        for name in sorted(other):
-            rows.append(f'<li><span class="icon">&#128196;</span>{name}</li>')
-
-    rows.append('</ul>')
-    body = "\n".join(rows)
-
+def _listing_page(files, sort: str, order: str):
+    body = '<h1 class="dir-title">&#128196; Files</h1>\n' + _file_table_html(files, sort, order)
     script = """\
 <script>
 (function() {
-  var es = new EventSource('/events');
-  es.addEventListener('update', function() {
-    fetch('/fragment')
-      .then(function(r) { return r.text(); })
-      .then(function(html) {
-        var el = document.getElementById('file-list');
-        if (el) el.outerHTML = html;
-      });
+  var state = { sort: 'mtime', order: 'desc' };
+  var initial = document.getElementById('file-list');
+  if (initial) {
+    state.sort = initial.dataset.sort || state.sort;
+    state.order = initial.dataset.order || state.order;
+  }
+
+  function refresh() {
+    var url = '/fragment?sort=' + state.sort + '&order=' + state.order;
+    fetch(url).then(function(r) { return r.text(); }).then(function(html) {
+      var el = document.getElementById('file-list');
+      if (el) el.outerHTML = html;
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    var th = e.target.closest && e.target.closest('th[data-sort]');
+    if (!th) return;
+    var col = th.dataset.sort;
+    if (state.sort === col) {
+      state.order = (state.order === 'asc') ? 'desc' : 'asc';
+    } else {
+      state.sort = col;
+      state.order = (col === 'name') ? 'asc' : 'desc';
+    }
+    refresh();
   });
+
+  var es = new EventSource('/events');
+  es.addEventListener('update', refresh);
 })();
 </script>"""
     return _render_page("md-live", body, script)
@@ -285,32 +316,9 @@ def _image_page(filename):
 </script>"""
     return _render_page(filename, body, script)
 
-def _listing_fragment(files):
-    """Return just the <ul> element for AJAX updates."""
-    md_files  = [f for f in files if _is_markdown(f)]
-    img_files = [f for f in files if _is_image(f)]
-    other     = [f for f in files if not _is_markdown(f) and not _is_image(f)]
-
-    rows = ['<ul class="file-list" id="file-list">']
-
-    def add_section(label, items, icon):
-        if not items:
-            return
-        rows.append(f'<li class="section-label">{label}</li>')
-        for name in sorted(items):
-            enc = urllib.parse.quote(name)
-            rows.append(f'<li><span class="icon">{icon}</span>'
-                        f'<a href="/view?f={enc}">{name}</a></li>')
-
-    add_section("Markdown", md_files, "&#128221;")
-    add_section("Images",   img_files, "&#128444;")
-    if other:
-        rows.append('<li class="section-label">Other</li>')
-        for name in sorted(other):
-            rows.append(f'<li><span class="icon">&#128196;</span>{name}</li>')
-
-    rows.append('</ul>')
-    return "\n".join(rows)
+def _listing_fragment(files, sort: str, order: str):
+    """Return just the <table> element for AJAX updates."""
+    return _file_table_html(files, sort, order)
 
 # ---------------------------------------------------------------------------
 # File helpers
@@ -327,10 +335,48 @@ def _is_image(name: str) -> bool:
 
 def _list_files(base: Path):
     try:
-        return [e.name for e in base.iterdir()
+        return [(e.name, e.stat().st_mtime) for e in base.iterdir()
                 if e.is_file() and not e.name.startswith(".")]
     except OSError:
         return []
+
+def _format_mtime(ts: float) -> str:
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
+
+def _sort_files(files, sort: str, order: str):
+    reverse = (order == "desc")
+    if sort == "mtime":
+        return sorted(files, key=lambda x: (x[1], x[0].lower()), reverse=reverse)
+    return sorted(files, key=lambda x: x[0].lower(), reverse=reverse)
+
+def _parse_sort(query: str):
+    qs = urllib.parse.parse_qs(query)
+    sort = qs.get("sort", ["mtime"])[0]
+    order = qs.get("order", ["desc"])[0]
+    if sort not in ("name", "mtime"):
+        sort = "mtime"
+    if order not in ("asc", "desc"):
+        order = "desc"
+    return sort, order
+
+def _index_watch_state(base: Path):
+    try:
+        dir_mt = base.stat().st_mtime
+    except OSError:
+        dir_mt = 0.0
+    files_mt = 0.0
+    try:
+        for e in base.iterdir():
+            if e.is_file() and not e.name.startswith("."):
+                try:
+                    m = e.stat().st_mtime
+                    if m > files_mt:
+                        files_mt = m
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    return (dir_mt, files_mt)
 
 def _get_mtime(path) -> float:
     try:
@@ -404,14 +450,16 @@ async def _send_error(writer, status: int, msg: str):
 # Route handlers
 # ---------------------------------------------------------------------------
 
-async def _handle_index(writer):
+async def _handle_index(writer, query: str):
+    sort, order = _parse_sort(query)
     files = _list_files(BASE_DIR)
-    await _send_html(writer, _listing_page(files))
+    await _send_html(writer, _listing_page(files, sort, order))
 
-async def _handle_fragment(writer):
+async def _handle_fragment(writer, query: str):
+    sort, order = _parse_sort(query)
     files = _list_files(BASE_DIR)
     await _send_response(writer, 200, "text/html; charset=utf-8",
-                         _listing_fragment(files).encode())
+                         _listing_fragment(files, sort, order).encode())
 
 async def _handle_view(writer, query: str):
     params = urllib.parse.parse_qs(query)
@@ -472,12 +520,12 @@ async def _handle_events(writer, query: str):
         watch_path = None  # watch directory
 
     _register_connection(writer)
-    last_mtime = _get_mtime(watch_path if watch_path else BASE_DIR)
+    last_mtime = _get_mtime(watch_path) if watch_path is not None else _index_watch_state(BASE_DIR)
 
     try:
         while True:
             await asyncio.sleep(POLL_INTERVAL)
-            current = _get_mtime(watch_path if watch_path else BASE_DIR)
+            current = _get_mtime(watch_path) if watch_path is not None else _index_watch_state(BASE_DIR)
             if current != last_mtime:
                 last_mtime = current
                 writer.write(b"event: update\ndata: changed\n\n")
@@ -533,9 +581,9 @@ async def _handle_connection(reader, writer):
         if method != "GET":
             await _send_error(writer, 405, "Method not allowed")
         elif path == "/":
-            await _handle_index(writer)
+            await _handle_index(writer, query)
         elif path == "/fragment":
-            await _handle_fragment(writer)
+            await _handle_fragment(writer, query)
         elif path == "/view":
             await _handle_view(writer, query)
         elif path == "/raw":
