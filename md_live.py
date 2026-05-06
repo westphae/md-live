@@ -683,19 +683,6 @@ def main():
         description="Live markdown preview server for local files.",
     )
 
-    cfg = _load_config()
-    overrides = {}
-    if "port" in cfg:
-        try:
-            overrides["port"] = int(cfg["port"])
-        except ValueError:
-            pass
-    if "host" in cfg:
-        overrides["host"] = cfg["host"]
-    if "no_open" in cfg:
-        overrides["no_open"] = cfg["no_open"].lower() in ("1", "true", "yes")
-    if overrides:
-        parser.set_defaults(**overrides)
     parser.add_argument(
         "path",
         nargs="?",
@@ -720,6 +707,19 @@ def main():
         action="store_true",
         help="Do not open browser automatically",
     )
+    cfg = _load_config()
+    overrides = {}
+    if "port" in cfg:
+        try:
+            overrides["port"] = int(cfg["port"])
+        except ValueError:
+            pass
+    if "host" in cfg:
+        overrides["host"] = cfg["host"]
+    if "no_open" in cfg:
+        overrides["no_open"] = cfg["no_open"].lower() in ("1", "true", "yes")
+    if overrides:
+        parser.set_defaults(**overrides)
     args = parser.parse_args()
 
     target = Path(args.path).resolve()
