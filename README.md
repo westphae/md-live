@@ -70,6 +70,19 @@ A browser tab opens at `http://localhost:4000`. When you close the tab, the serv
 | `--no-open` | — | Don't open the browser automatically |
 | `PATH` | `.` | Directory to serve, or a file to open directly |
 
+## Configuration
+
+Persistent defaults can be set in `~/.config/md-live/config`:
+
+```ini
+# md-live configuration
+host = 0.0.0.0
+port = 4001
+no_open = true
+```
+
+Any key can be omitted to keep the built-in default. CLI flags always take precedence.
+
 ## Tips
 
 For the smoothest experience, enable auto-save in your editor so the preview updates as you type:

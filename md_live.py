@@ -663,11 +663,39 @@ async def serve(port: int, directory: Path, open_browser: bool, open_file: str =
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+def _load_config() -> dict:
+    path = Path.home() / ".config" / "md-live" / "config"
+    cfg = {}
+    try:
+        for line in path.read_text().splitlines():
+            line = line.split("#", 1)[0].strip()
+            if "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            cfg[key.strip()] = val.strip()
+    except OSError:
+        pass
+    return cfg
+
 def main():
     parser = argparse.ArgumentParser(
         prog="md-live",
         description="Live markdown preview server for local files.",
     )
+
+    cfg = _load_config()
+    overrides = {}
+    if "port" in cfg:
+        try:
+            overrides["port"] = int(cfg["port"])
+        except ValueError:
+            pass
+    if "host" in cfg:
+        overrides["host"] = cfg["host"]
+    if "no_open" in cfg:
+        overrides["no_open"] = cfg["no_open"].lower() in ("1", "true", "yes")
+    if overrides:
+        parser.set_defaults(**overrides)
     parser.add_argument(
         "path",
         nargs="?",
