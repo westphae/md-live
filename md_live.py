@@ -605,12 +605,12 @@ async def _handle_connection(reader, writer):
 
 async def serve(port: int, directory: Path, open_browser: bool, open_file: str = "",
                 port_explicit: bool = False, host: str = "127.0.0.1",
-                noexit: bool = False):
+                no_exit: bool = False):
     global BASE_DIR, _server, _loop, NO_EXIT
 
     BASE_DIR = directory
     _loop = asyncio.get_running_loop()
-    NO_EXIT = noexit
+    NO_EXIT = no_exit
 
     if port_explicit:
         try:
@@ -713,7 +713,7 @@ def main():
         help="Do not open browser automatically",
     )
     parser.add_argument(
-        "--noexit",
+        "--no-exit",
         action="store_true",
         help="Keep the server running even when no clients are connected",
     )
@@ -728,8 +728,8 @@ def main():
         overrides["host"] = cfg["host"]
     if "no_open" in cfg:
         overrides["no_open"] = cfg["no_open"].lower() in ("1", "true", "yes")
-    if "noexit" in cfg:
-        overrides["noexit"] = cfg["noexit"].lower() in ("1", "true", "yes")
+    if "no_exit" in cfg:
+        overrides["no_exit"] = cfg["no_exit"].lower() in ("1", "true", "yes")
     if overrides:
         parser.set_defaults(**overrides)
     args = parser.parse_args()
@@ -747,7 +747,7 @@ def main():
 
     port_explicit = "--port" in sys.argv or "-p" in sys.argv
     asyncio.run(serve(args.port, directory, not args.no_open, open_file, port_explicit, args.host,
-                      args.noexit))
+                      args.no_exit))
 
 if __name__ == "__main__":
     main()
