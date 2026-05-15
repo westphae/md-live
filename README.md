@@ -68,6 +68,7 @@ A browser tab opens at `http://localhost:4000`. When you close the tab, the serv
 | `--port`, `-p` | `4000` | Port to listen on |
 | `--host`, `-H` | `127.0.0.1` | Address to bind (use `0.0.0.0` to expose on the network) |
 | `--no-open` | — | Don't open the browser automatically |
+| `--noexit` | — | Keep running after the last client disconnects |
 | `PATH` | `.` | Directory to serve, or a file to open directly |
 
 ## Configuration
@@ -79,6 +80,7 @@ Persistent defaults can be set in `~/.config/md-live/config`:
 host = 0.0.0.0
 port = 4001
 no_open = true
+noexit = true
 ```
 
 Any key can be omitted to keep the built-in default. CLI flags always take precedence.

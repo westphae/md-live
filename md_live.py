@@ -30,6 +30,7 @@ active_connections: set = set()
 _exit_handle = None
 _server = None
 _loop = None
+NO_EXIT = False
 
 # ---------------------------------------------------------------------------
 # Security
@@ -557,6 +558,8 @@ def _unregister_connection(writer):
 
 def _schedule_exit():
     global _exit_handle
+    if NO_EXIT:
+        return
     if _exit_handle is not None:
         return
     _exit_handle = _loop.call_later(EXIT_GRACE, _do_exit)
@@ -601,11 +604,13 @@ async def _handle_connection(reader, writer):
             pass
 
 async def serve(port: int, directory: Path, open_browser: bool, open_file: str = "",
-                port_explicit: bool = False, host: str = "127.0.0.1"):
-    global BASE_DIR, _server, _loop
+                port_explicit: bool = False, host: str = "127.0.0.1",
+                noexit: bool = False):
+    global BASE_DIR, _server, _loop, NO_EXIT
 
     BASE_DIR = directory
     _loop = asyncio.get_running_loop()
+    NO_EXIT = noexit
 
     if port_explicit:
         try:
@@ -707,6 +712,11 @@ def main():
         action="store_true",
         help="Do not open browser automatically",
     )
+    parser.add_argument(
+        "--noexit",
+        action="store_true",
+        help="Keep the server running even when no clients are connected",
+    )
     cfg = _load_config()
     overrides = {}
     if "port" in cfg:
@@ -718,6 +728,8 @@ def main():
         overrides["host"] = cfg["host"]
     if "no_open" in cfg:
         overrides["no_open"] = cfg["no_open"].lower() in ("1", "true", "yes")
+    if "noexit" in cfg:
+        overrides["noexit"] = cfg["noexit"].lower() in ("1", "true", "yes")
     if overrides:
         parser.set_defaults(**overrides)
     args = parser.parse_args()
@@ -734,7 +746,8 @@ def main():
         sys.exit(1)
 
     port_explicit = "--port" in sys.argv or "-p" in sys.argv
-    asyncio.run(serve(args.port, directory, not args.no_open, open_file, port_explicit, args.host))
+    asyncio.run(serve(args.port, directory, not args.no_open, open_file, port_explicit, args.host,
+                      args.noexit))
 
 if __name__ == "__main__":
     main()
